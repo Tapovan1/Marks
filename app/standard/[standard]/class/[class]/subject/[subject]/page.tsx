@@ -51,6 +51,8 @@ export default function SubjectPage({
     params.class,
     params.subject
   );
+  console.log("students", students);
+
   const { markEntries, addMarkEntry } = useMarkEntries(
     params.standard,
     subjectName,
@@ -90,8 +92,6 @@ export default function SubjectPage({
   }, []);
 
   const getPdfData = useCallback(() => {
-    
-
     return {
       subject: subjectName.toUpperCase(),
       chapter: selectedEntry?.Chapter || "",

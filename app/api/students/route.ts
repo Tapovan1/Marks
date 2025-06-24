@@ -6,9 +6,11 @@ export async function GET(request: Request) {
   const standard = searchParams.get("standard");
   const classParam = searchParams.get("class");
   const subject = searchParams.get("subject");
-  const subClass = searchParams.get("subClass")
- 
-  
+  const subClass = searchParams.get("subClass");
+  console.log("standard", standard);
+  console.log("classParam", classParam);
+  console.log("subject", subject);
+  console.log("subClass", subClass);
 
   let students;
 
@@ -18,7 +20,7 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          subClass: "Maths",
+          // subClass: "Maths",
         },
       });
     } else if (subject === "Biology" || subject === "Sanskrit") {
@@ -26,7 +28,7 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          subClass: "Biology",
+          // subClass: "Biology",
         },
       });
     } else if (
@@ -34,16 +36,12 @@ export async function GET(request: Request) {
       subject === "Physics" ||
       subject === "English"
     ) {
-     
-      
       students = await prisma.student.findMany({
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
-          currentClass:classParam || undefined
+          currentClass: classParam || undefined,
         },
       });
-    
-      
     } else {
       students = await prisma.student.findMany({
         where: {
@@ -88,8 +86,7 @@ export async function GET(request: Request) {
   //   });
   // }
 
-  // console.log("students",students);
-  
+  console.log("students", students);
 
   //@ts-expect-error
   const sortedStudents = students.sort((a, b) => a.rollNo - b.rollNo);
@@ -99,8 +96,7 @@ export async function GET(request: Request) {
 
 export async function POST(request: Request) {
   const data = await request.json();
-  console.log("data",data);
-  
+  console.log("data", data);
 
   const student = await prisma.student.create({
     data: {
@@ -108,7 +104,7 @@ export async function POST(request: Request) {
       rollNo: data.rollNo,
       currentStandard: parseInt(data.currentStandard),
       currentClass: data.class,
-      subClass:data.subClass,
+      subClass: data.subClass,
       academicHistory: {
         create: {
           year: new Date().getFullYear(),
