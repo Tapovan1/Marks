@@ -51,7 +51,7 @@ export default function SubjectPage({
     params.class,
     params.subject
   );
-  console.log("students", students);
+  // console.log("students", students);
 
   const { markEntries, addMarkEntry } = useMarkEntries(
     params.standard,

@@ -86,7 +86,7 @@ export async function GET(request: Request) {
   //   });
   // }
 
-  console.log("students", students);
+  // console.log("students", students);
 
   //@ts-expect-error
   const sortedStudents = students.sort((a, b) => a.rollNo - b.rollNo);
