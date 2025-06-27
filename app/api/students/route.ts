@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          // subClass: "Maths",
+          subClass: "Maths",
         },
       });
     } else if (subject === "Biology" || subject === "Sanskrit") {
@@ -28,7 +28,7 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          // subClass: "Biology",
+          subClass: "Biology",
         },
       });
     } else if (
