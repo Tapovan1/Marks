@@ -7,10 +7,10 @@ export async function GET(request: Request) {
   const classParam = searchParams.get("class");
   const subject = searchParams.get("subject");
   const subClass = searchParams.get("subClass");
-  console.log("standard", standard);
-  console.log("classParam", classParam);
-  console.log("subject", subject);
-  console.log("subClass", subClass);
+  // console.log("standard", standard);
+  // console.log("classParam", classParam);
+  // console.log("subject", subject);
+  // console.log("subClass", subClass);
 
   let students;
 
