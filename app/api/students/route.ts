@@ -20,7 +20,7 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          subClass: "Maths",
+          subClass: subClass || undefined,
         },
       });
     } else if (subject === "Biology" || subject === "Sanskrit") {
@@ -28,7 +28,8 @@ export async function GET(request: Request) {
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
           currentClass: classParam || undefined,
-          subClass: "Biology",
+          //if subClass is there use or not fetch undefined
+          subClass: subClass || undefined,
         },
       });
     } else if (
@@ -39,7 +40,11 @@ export async function GET(request: Request) {
       students = await prisma.student.findMany({
         where: {
           currentStandard: standard ? parseInt(standard) : undefined,
-          currentClass: classParam || undefined,
+          //for currentClass if std 12 so make include class Maths and Biology else as it
+          currentClass:
+            standard === "12"
+              ? { in: ["Maths", "Biology"] }
+              : classParam || undefined,
         },
       });
     } else {
