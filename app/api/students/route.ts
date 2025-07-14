@@ -11,42 +11,51 @@ export async function GET(request: Request) {
   // console.log("classParam", classParam);
   // console.log("subject", subject);
   // console.log("subClass", subClass);
+  try {
+    let students;
 
-  let students;
-
-  if (standard === "11" || standard === "12") {
-    if (subject === "Maths" || subject === "Computer") {
-      students = await prisma.student.findMany({
-        where: {
-          currentStandard: standard ? parseInt(standard) : undefined,
-          currentClass: classParam || undefined,
-          subClass: subClass || undefined,
-        },
-      });
-    } else if (subject === "Biology" || subject === "Sanskrit") {
-      students = await prisma.student.findMany({
-        where: {
-          currentStandard: standard ? parseInt(standard) : undefined,
-          currentClass: classParam || undefined,
-          //if subClass is there use or not fetch undefined
-          subClass: subClass || undefined,
-        },
-      });
-    } else if (
-      subject === "Chemistry" ||
-      subject === "Physics" ||
-      subject === "English"
-    ) {
-      students = await prisma.student.findMany({
-        where: {
-          currentStandard: standard ? parseInt(standard) : undefined,
-          //for currentClass if std 12 so make include class Maths and Biology else as it
-          currentClass:
-            standard === "12"
-              ? { in: ["Maths", "Biology"] }
-              : classParam || undefined,
-        },
-      });
+    if (standard === "11" || standard === "12") {
+      if (subject === "Maths" || subject === "Computer") {
+        students = await prisma.student.findMany({
+          where: {
+            currentStandard: standard ? parseInt(standard) : undefined,
+            currentClass: classParam || undefined,
+            subClass: subClass || undefined,
+          },
+        });
+      } else if (subject === "Biology" || subject === "Sanskrit") {
+        students = await prisma.student.findMany({
+          where: {
+            currentStandard: standard ? parseInt(standard) : undefined,
+            currentClass: classParam || undefined,
+            //if subClass is there use or not fetch undefined
+            subClass: subClass || undefined,
+          },
+        });
+      } else if (
+        subject === "Chemistry" ||
+        subject === "Physics" ||
+        subject === "English"
+      ) {
+        students = await prisma.student.findMany({
+          where: {
+            currentStandard: standard ? parseInt(standard) : undefined,
+            //for currentClass if std 12 so make include class Maths and Biology else as it
+            currentClass:
+              standard === "12"
+                ? { in: ["Maths", "Biology"] }
+                : classParam || undefined,
+          },
+        });
+      } else {
+        students = await prisma.student.findMany({
+          where: {
+            currentStandard: standard ? parseInt(standard) : undefined,
+            currentClass: classParam || undefined,
+            subClass: subClass || undefined,
+          },
+        });
+      }
     } else {
       students = await prisma.student.findMany({
         where: {
@@ -56,47 +65,47 @@ export async function GET(request: Request) {
         },
       });
     }
-  } else {
-    students = await prisma.student.findMany({
-      where: {
-        currentStandard: standard ? parseInt(standard) : undefined,
-        currentClass: classParam || undefined,
-        subClass: subClass || undefined,
-      },
-    });
+
+    // if (
+    //   (subject === "Chemistry" ||
+    //     subject === "Physics" ||
+    //     subject === "English") &&
+    //   (standard === "11" || standard === "12")
+    // ) {
+    //   students = await prisma.student.findMany({
+    //     where: {
+    //       currentStandard: standard ? parseInt(standard) : undefined,
+    //       ...(classParam &&
+    //       ["Jee", "Neet", "Eng-Jee", "Eng-Neet"].includes(classParam)
+    //         ? { currentClass: classParam }
+    //         : {}),
+    //     },
+    //   });
+    // } else {
+    //   students = await prisma.student.findMany({
+    //     where: {
+    //       currentStandard: standard ? parseInt(standard) : undefined,
+    //       currentClass: classParam || undefined,
+    //       subClass:subClass || undefined
+    //     },
+    //   });
+    // }
+
+    // console.log("students", students);
+
+    //@ts-expect-error
+    const sortedStudents = students.sort((a, b) => a.rollNo - b.rollNo);
+
+    return NextResponse.json(sortedStudents);
+  } catch (error) {
+    console.error("Error fetching students:", error);
+    return NextResponse.json(
+      { error: "Failed to fetch students" },
+      { status: 500 }
+    );
+  } finally {
+    await prisma.$disconnect();
   }
-
-  // if (
-  //   (subject === "Chemistry" ||
-  //     subject === "Physics" ||
-  //     subject === "English") &&
-  //   (standard === "11" || standard === "12")
-  // ) {
-  //   students = await prisma.student.findMany({
-  //     where: {
-  //       currentStandard: standard ? parseInt(standard) : undefined,
-  //       ...(classParam &&
-  //       ["Jee", "Neet", "Eng-Jee", "Eng-Neet"].includes(classParam)
-  //         ? { currentClass: classParam }
-  //         : {}),
-  //     },
-  //   });
-  // } else {
-  //   students = await prisma.student.findMany({
-  //     where: {
-  //       currentStandard: standard ? parseInt(standard) : undefined,
-  //       currentClass: classParam || undefined,
-  //       subClass:subClass || undefined
-  //     },
-  //   });
-  // }
-
-  // console.log("students", students);
-
-  //@ts-expect-error
-  const sortedStudents = students.sort((a, b) => a.rollNo - b.rollNo);
-
-  return NextResponse.json(sortedStudents);
 }
 
 export async function POST(request: Request) {
