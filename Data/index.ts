@@ -129,7 +129,7 @@ export const standards = {
     ],
   },
   "10": {
-    classes: [ "Nchiketa","Dhruv","Prahlad"],
+    classes: [ "Nachiketa","Dhruv","Prahlad"],
     subjects: [
       "Sanskrit",
       "Maths",
