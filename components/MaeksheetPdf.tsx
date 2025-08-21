@@ -15,11 +15,16 @@ Font.register({
   src: "https://fonts.gstatic.com/s/roboto/v29/KFOmCnqEu92Fr1Me5Q.ttf",
 });
 
+Font.register({
+  family: "NotoSansGujarati",
+  src: "/fonts/NotoSansGujarati-Regular.ttf",
+});
+
 interface MarkSheetProps {
   subject: string;
   standard: string;
   chapter: string;
-  testName:string;
+  testName: string;
   maxMarks: number;
 
   date: string;
@@ -40,6 +45,10 @@ interface HeaderProps {
 }
 
 const styles = StyleSheet.create({
+  gujratiText: {
+    fontFamily: "NotoSansGujarati",
+    fontSize: 12,
+  },
   page: {
     padding: 10,
     fontSize: 12,
@@ -55,6 +64,7 @@ const styles = StyleSheet.create({
     color: "#FFD700",
     fontSize: 26,
     textAlign: "center",
+    fontFamily: "NotoSansGujarati",
     fontWeight: "bold",
   },
   subHeader: {
@@ -83,11 +93,11 @@ const styles = StyleSheet.create({
   },
   tableHeader: {
     backgroundColor: "#4A90E2",
-    
+
     fontWeight: "bold",
     color: "Black",
     padding: 5,
-    
+
     textAlign: "center",
   },
   tableCell: {
@@ -126,7 +136,13 @@ const formatDate = (dateString: string) => {
   return `${day}-${month}-${year}`;
 };
 
-const Header = ({ subject, chapter, standard, date, testName }: HeaderProps) => (
+const Header = ({
+  subject,
+  chapter,
+  standard,
+  date,
+  testName,
+}: HeaderProps) => (
   <View style={styles.header}>
     <Text style={styles.schoolName}>TAPOVAN VIDHYAMANDIR SANKUL</Text>
     <Text style={styles.subHeader}>{testName}</Text>
@@ -156,25 +172,29 @@ export function MarkSheetPDF({
     <Document>
       {Array.from({ length: totalPages }).map((_, pageIndex) => (
         <Page key={pageIndex} size="A4" style={styles.page}>
-          <Header 
-            subject={subject} 
-            chapter={chapter} 
-            standard={standard} 
-            date={date} 
-            testName={testName} 
+          <Header
+            subject={subject}
+            chapter={chapter}
+            standard={standard}
+            date={date}
+            testName={testName}
           />
           <View style={styles.table}>
             <View style={styles.tableRow}>
               <View style={[styles.tableCell, styles.srNo, styles.tableHeader]}>
                 <Text>Sr No</Text>
               </View>
-              <View style={[styles.tableCell, styles.rollNo, styles.tableHeader]}>
+              <View
+                style={[styles.tableCell, styles.rollNo, styles.tableHeader]}
+              >
                 <Text>Roll No</Text>
               </View>
               <View style={[styles.tableCell, styles.name, styles.tableHeader]}>
                 <Text>Name</Text>
               </View>
-              <View style={[styles.tableCell, styles.marks, styles.tableHeader]}>
+              <View
+                style={[styles.tableCell, styles.marks, styles.tableHeader]}
+              >
                 <Text>Marks ({maxMarks})</Text>
               </View>
             </View>
@@ -197,7 +217,9 @@ export function MarkSheetPDF({
                   </View>
                   <View style={[styles.tableCell, styles.marks]}>
                     <Text
-                      style={student.marks === "AB" ? styles.absentText : undefined}
+                      style={
+                        student.marks === "AB" ? styles.absentText : undefined
+                      }
                     >
                       {student.marks}
                     </Text>

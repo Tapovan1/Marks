@@ -31,6 +31,7 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select";
+import { standards, StandardKey } from "@/Data/index";
 
 type AbsentStudent = {
   id: number;
@@ -49,11 +50,17 @@ export default function AbsentStudentReason() {
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
+  const [selectedStandard, setSelectedStandard] = useState<StandardKey | "">(
+    ""
+  );
+  const [selectedClass, setSelectedClass] = useState<string>("");
+
   const fetchAbsentStudents = async () => {
     if (!startDate || !endDate) {
       setError("Please select both start and end dates");
       return;
     }
+
     const adjustedStartDate = new Date(startDate);
     const adjustedEndDate = new Date(endDate);
 
@@ -68,10 +75,21 @@ export default function AbsentStudentReason() {
 
     setIsLoading(true);
     setError(null);
+
     try {
+      // ✅ build query params dynamically
+      const params = new URLSearchParams({
+        startDate: startTimestamp.toString(),
+        endDate: endTimestamp.toString(),
+      });
+
+      if (selectedStandard) params.append("standard", selectedStandard);
+      if (selectedClass) params.append("className", selectedClass);
+
       const response = await fetch(
-        `https://t1-api-attendance.vercel.app/api/absent-students?startDate=${startTimestamp}&endDate=${endTimestamp}`
+        `https://t1-api-attendance.vercel.app/api/absent-students?${params.toString()}`
       );
+
       if (!response.ok) {
         throw new Error("Failed to fetch absent students data");
       }
@@ -120,6 +138,7 @@ export default function AbsentStudentReason() {
       </CardHeader>
       <CardContent>
         <div className="space-y-4">
+          {/* Date Pickers */}
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
               <Label htmlFor="startDate" className="mb-2 block">
@@ -135,39 +154,64 @@ export default function AbsentStudentReason() {
             </div>
           </div>
 
+          {/* Standard & Class Select */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <Label htmlFor="standard" className="mb-2 block">
+                Standard (optional)
+              </Label>
+              <Select
+                onValueChange={(value) => {
+                  setSelectedStandard(value as StandardKey);
+                  setSelectedClass(""); // reset class if standard changes
+                }}
+                value={selectedStandard}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Standard" />
+                </SelectTrigger>
+                <SelectContent>
+                  {Object.keys(standards).map((std) => (
+                    <SelectItem key={std} value={std}>
+                      {std}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div>
+              <Label htmlFor="className" className="mb-2 block">
+                Class (optional)
+              </Label>
+              <Select
+                onValueChange={(value) => setSelectedClass(value)}
+                value={selectedClass}
+                disabled={!selectedStandard}
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select Class" />
+                </SelectTrigger>
+                <SelectContent>
+                  {selectedStandard &&
+                    standards[selectedStandard].classes.map((cls) => (
+                      <SelectItem key={cls} value={cls}>
+                        {cls}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+
+          {/* Fetch + PDF Buttons */}
           <div className="flex flex-col sm:flex-row justify-center gap-4">
             <Button
               onClick={fetchAbsentStudents}
               disabled={isLoading || !startDate || !endDate}
               className="min-w-[200px]"
             >
-              {isLoading ? (
-                <>
-                  <svg
-                    className="animate-spin -ml-1 mr-3 h-5 w-5 text-white"
-                    xmlns="http://www.w3.org/2000/svg"
-                    fill="none"
-                    viewBox="0 0 24 24"
-                  >
-                    <circle
-                      className="opacity-25"
-                      cx="12"
-                      cy="12"
-                      r="10"
-                      stroke="currentColor"
-                      strokeWidth="4"
-                    ></circle>
-                    <path
-                      className="opacity-75"
-                      fill="currentColor"
-                      d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"
-                    ></path>
-                  </svg>
-                  Fetching...
-                </>
-              ) : (
-                "Get Absent Students"
-              )}
+              {isLoading ? "Fetching..." : "Get Absent Students"}
             </Button>
 
             {absentStudents.length > 0 && (
@@ -193,6 +237,7 @@ export default function AbsentStudentReason() {
 
           {error && <div className="text-red-500 text-center">{error}</div>}
 
+          {/* Table */}
           {absentStudents.length > 0 && (
             <div className="w-full overflow-auto sm:overflow-visible">
               <div className="min-w-[800px] sm:w-full">
@@ -251,13 +296,6 @@ export default function AbsentStudentReason() {
                   </TableBody>
                 </Table>
               </div>
-            </div>
-          )}
-
-          {!isLoading && absentStudents.length === 0 && (
-            <div className="text-center text-muted-foreground">
-              No absent students found. Please select a date range and click the
-              button to fetch data.
             </div>
           )}
         </div>

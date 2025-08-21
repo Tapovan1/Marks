@@ -5,7 +5,10 @@ import {
   View,
   StyleSheet,
   Image,
+  Font,
 } from "@react-pdf/renderer";
+
+
 
 const styles = StyleSheet.create({
   page: {
