@@ -28,8 +28,10 @@ import {
   BarChart3,
   Calendar,
   CalendarDays,
+  AlertTriangle,
 } from "lucide-react";
 import { Alert, AlertDescription } from "@/components/ui/alert";
+import { Badge } from "@/components/ui/badge";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import {
   Table,
@@ -64,6 +66,15 @@ export default function EnhancedAdminPanel() {
   const [isAddingStudent, setIsAddingStudent] = useState(false);
   const [deletingId, setDeletingId] = useState(null);
   const [loadingId, setLoadingId] = useState(null);
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false);
+  const [transferringStudent, setTransferringStudent] = useState(null);
+  const [transferTargetClass, setTransferTargetClass] = useState("");
+  const [transferTargetSubClass, setTransferTargetSubClass] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
+  const [testComparison, setTestComparison] = useState(null);
+  const [loadingTestComparison, setLoadingTestComparison] = useState(false);
+  const [selectedTestsToLink, setSelectedTestsToLink] = useState(new Set());
+  const [showTestDetails, setShowTestDetails] = useState(false);
 
   const STANDARDS = Object.keys(standards).sort((a, b) => {
     // Custom sort to put KG1, KG2 first, then numeric order
@@ -441,6 +452,135 @@ export default function EnhancedAdminPanel() {
     }
   };
 
+  const openTransferDialog = (student, standard, fromClass) => {
+    setTransferringStudent({ student, standard, fromClass });
+    const availableClasses = standards[standard]?.classes || [];
+    const defaultTarget = availableClasses.find((cls) => cls !== fromClass) || "";
+    setTransferTargetClass(defaultTarget);
+    setTransferTargetSubClass(
+      student.subClass ||
+        ((standard === "11" || standard === "12") ? "" : "")
+    );
+    setTestComparison(null);
+    setSelectedTestsToLink(new Set());
+    setShowTestDetails(false);
+    setIsTransferDialogOpen(true);
+  };
+
+  const fetchTestComparison = async () => {
+    if (!transferringStudent || !transferTargetClass) return;
+
+    setLoadingTestComparison(true);
+    try {
+      const response = await fetch(
+        `/api/transfer-student/compare-tests?standard=${transferringStudent.standard}&sourceClass=${transferringStudent.fromClass}&destinationClass=${transferTargetClass}&studentId=${transferringStudent.student.id}`
+      );
+      const data = await response.json();
+      if (response.ok) {
+        setTestComparison(data);
+        // Auto-select tests that can be linked
+        const autoLinkable = data.matchedTests
+          .filter((test) => test.canLink && test.hasStudentMark)
+          .map((test) => test.sourceEntry.id);
+        setSelectedTestsToLink(new Set(autoLinkable));
+      } else {
+        console.error("Error fetching test comparison:", data.error);
+      }
+    } catch (error) {
+      console.error("Error fetching test comparison:", error);
+    } finally {
+      setLoadingTestComparison(false);
+    }
+  };
+
+  useEffect(() => {
+    if (isTransferDialogOpen && transferTargetClass && transferringStudent) {
+      fetchTestComparison();
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [transferTargetClass, isTransferDialogOpen]);
+
+  const handleTransferStudent = async (event) => {
+    event.preventDefault();
+    if (!transferringStudent || !transferTargetClass) {
+      alert("Please select a destination class");
+      return;
+    }
+
+    const { student, standard, fromClass } = transferringStudent;
+    setIsTransferring(true);
+
+    try {
+      // Prepare test links - convert Set to Array of {sourceEntryId, destinationEntryId}
+      const testLinks = [];
+      if (testComparison && selectedTestsToLink.size > 0) {
+        selectedTestsToLink.forEach((sourceEntryId) => {
+          const testMatch = testComparison.matchedTests.find(
+            (t) => t.sourceEntry.id === sourceEntryId && t.bestMatch
+          );
+          if (testMatch && testMatch.bestMatch) {
+            testLinks.push({
+              sourceEntryId: sourceEntryId,
+              destinationEntryId: testMatch.bestMatch.destinationEntry.id,
+              studentMark: testMatch.studentMark?.score || null,
+            });
+          }
+        });
+      }
+
+      const response = await fetch(`/api/transfer-student`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          studentId: student.id,
+          sourceStandard: standard,
+          sourceClass: fromClass,
+          destinationStandard: standard,
+          destinationClass: transferTargetClass,
+          destinationSubClass:
+            standard === "11" || standard === "12"
+              ? transferTargetSubClass || null
+              : null,
+          testLinks: testLinks, // Include selected test links
+        }),
+      });
+
+      const result = await response.json();
+
+      if (!response.ok || !result.success) {
+        throw new Error(result.error || "Failed to transfer student");
+      }
+
+      // Refresh both source and destination classes
+      await fetchStudentsForClass(standard, fromClass);
+      await fetchStudentsForClass(standard, transferTargetClass);
+
+      // Remove from selected students if selected
+      setSelectedStudents((prev) => prev.filter((id) => id !== student.id));
+      
+      // Close dialog and reset state
+      setIsTransferDialogOpen(false);
+      setTransferringStudent(null);
+      setTransferTargetClass("");
+      setTransferTargetSubClass("");
+      setTestComparison(null);
+      setSelectedTestsToLink(new Set());
+      setShowTestDetails(false);
+
+      // Show success message
+      alert(result.message || "Student transferred successfully");
+    } catch (error) {
+      console.error("Error transferring student:", error);
+      alert(
+        error instanceof Error
+          ? error.message
+          : "Error transferring student"
+      );
+    } finally {
+      setIsTransferring(false);
+    }
+  };
+
   const handleDeleteStudent = async (studentId, standard, className) => {
     if (!confirm("Are you sure you want to delete this student?")) return;
 
@@ -557,6 +697,7 @@ export default function EnhancedAdminPanel() {
               Holiday Management
             </Button>
           </Link>
+          
 
           <div className="flex gap-2">
             <Dialog
@@ -712,6 +853,263 @@ export default function EnhancedAdminPanel() {
           </div>
         </div>
       </div>
+
+      <Dialog
+        open={isTransferDialogOpen}
+        onOpenChange={(open) => {
+          setIsTransferDialogOpen(open);
+          if (!open) {
+            setTransferringStudent(null);
+            setTransferTargetClass("");
+            setTransferTargetSubClass("");
+          }
+        }}
+      >
+        <DialogContent className="sm:max-w-[700px] max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle>Transfer Student</DialogTitle>
+          </DialogHeader>
+          {transferringStudent ? (
+            <form onSubmit={handleTransferStudent} className="space-y-4">
+              <div className="space-y-1">
+                <p className="text-sm text-muted-foreground">
+                  {`Moving ${transferringStudent.student.name} (Roll No. ${transferringStudent.student.rollNo})`}
+                </p>
+                <p className="text-sm text-muted-foreground">
+                  {`Current: Standard ${transferringStudent.standard}, Class ${transferringStudent.fromClass}`}
+                </p>
+              </div>
+
+              <div>
+                <Label>Destination Class</Label>
+                <Select
+                  value={transferTargetClass}
+                  onValueChange={setTransferTargetClass}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select Class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {(standards[transferringStudent.standard]?.classes || [])
+                      .filter((cls) => cls !== transferringStudent.fromClass)
+                      .map((cls) => (
+                        <SelectItem key={cls} value={cls}>
+                          Class {cls}
+                        </SelectItem>
+                      ))}
+                  </SelectContent>
+                </Select>
+              </div>
+
+              {(transferringStudent.standard === "11" ||
+                transferringStudent.standard === "12") && (
+                <div>
+                  <Label>Stream / SubClass</Label>
+                  <Select
+                    value={transferTargetSubClass}
+                    onValueChange={setTransferTargetSubClass}
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select SubClass" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {["Maths", "Biology"].map((option) => (
+                        <SelectItem key={option} value={option}>
+                          {option}
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <p className="text-sm text-gray-500 mt-1">
+                    Required for Standards 11 and 12
+                  </p>
+                </div>
+              )}
+
+              {/* Test Comparison Section */}
+              {transferTargetClass && (
+                <div className="border-t pt-4">
+                  <div className="flex items-center justify-between mb-2">
+                    <Label className="text-base font-semibold">
+                      Test Details & Matching
+                    </Label>
+                    <Button
+                      type="button"
+                      variant="outline"
+                      size="sm"
+                      onClick={() => setShowTestDetails(!showTestDetails)}
+                    >
+                      {showTestDetails ? "Hide" : "Show"} Details
+                    </Button>
+                  </div>
+
+                  {loadingTestComparison ? (
+                    <div className="flex items-center justify-center py-4">
+                      <Loader2 className="w-5 h-5 animate-spin mr-2" />
+                      <span className="text-sm">Analyzing tests...</span>
+                    </div>
+                  ) : testComparison ? (
+                    <div className="space-y-3">
+                      <div className="grid grid-cols-3 gap-2 text-sm">
+                        <div className="bg-blue-50 p-2 rounded">
+                          <div className="font-semibold">
+                            {testComparison.totalSourceTests}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Tests in {testComparison.sourceClass}
+                          </div>
+                        </div>
+                        <div className="bg-green-50 p-2 rounded">
+                          <div className="font-semibold">
+                            {testComparison.totalDestinationTests}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Tests in {testComparison.destinationClass}
+                          </div>
+                        </div>
+                        <div className="bg-purple-50 p-2 rounded">
+                          <div className="font-semibold">
+                            {testComparison.summary.canAutoLink}
+                          </div>
+                          <div className="text-xs text-gray-600">
+                            Can Auto-Link
+                          </div>
+                        </div>
+                      </div>
+
+                      {showTestDetails && (
+                        <div className="max-h-60 overflow-y-auto border rounded p-3 space-y-2">
+                          {Object.entries(testComparison.groupedBySubject).map(
+                            ([subject, tests]) => (
+                              <div key={subject} className="space-y-2">
+                                <div className="font-semibold text-sm border-b pb-1">
+                                  {subject}
+                                </div>
+                                {tests.map((test) => (
+                                  <div
+                                    key={test.sourceEntry.id}
+                                    className="flex items-start gap-2 p-2 bg-gray-50 rounded text-sm"
+                                  >
+                                    <Checkbox
+                                      checked={selectedTestsToLink.has(
+                                        test.sourceEntry.id
+                                      )}
+                                      onCheckedChange={(checked) => {
+                                        const newSet = new Set(
+                                          selectedTestsToLink
+                                        );
+                                        if (checked) {
+                                          newSet.add(test.sourceEntry.id);
+                                        } else {
+                                          newSet.delete(test.sourceEntry.id);
+                                        }
+                                        setSelectedTestsToLink(newSet);
+                                      }}
+                                      disabled={
+                                        !test.bestMatch || !test.hasStudentMark
+                                      }
+                                    />
+                                    <div className="flex-1">
+                                      <div className="flex items-center gap-2">
+                                        <span className="font-medium">
+                                          {test.sourceEntry.name}
+                                        </span>
+                                        {test.hasStudentMark && (
+                                          <Badge variant="secondary" className="text-xs">
+                                            Mark: {test.studentMark.score}
+                                          </Badge>
+                                        )}
+                                      </div>
+                                      <div className="text-xs text-gray-600 mt-1">
+                                        {new Date(
+                                          test.sourceEntry.date
+                                        ).toLocaleDateString()}{" "}
+                                        • Max: {test.sourceEntry.MaxMarks}
+                                      </div>
+                                      {test.bestMatch ? (
+                                        <div className="text-xs text-green-600 mt-1">
+                                          ✓ Matches:{" "}
+                                          {test.bestMatch.destinationEntry.name}{" "}
+                                          (Score: {test.bestMatch.score})
+                                          {test.canLink && (
+                                            <span className="ml-1 font-semibold">
+                                              [Auto-Link]
+                                            </span>
+                                          )}
+                                        </div>
+                                      ) : (
+                                        <div className="text-xs text-red-600 mt-1">
+                                          ✗ No match found
+                                        </div>
+                                      )}
+                                    </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      <Alert className="text-xs">
+                        <AlertDescription>
+                          {testComparison.summary.canAutoLink > 0 && (
+                            <div>
+                              {testComparison.summary.canAutoLink} test(s) can
+                              be automatically linked.{" "}
+                            </div>
+                          )}
+                          {testComparison.summary.hasMarks > 0 && (
+                            <div>
+                              Student has marks in{" "}
+                              {testComparison.summary.hasMarks} test(s).
+                            </div>
+                          )}
+                          {selectedTestsToLink.size > 0 && (
+                            <div className="font-semibold mt-1">
+                              {selectedTestsToLink.size} test(s) selected for
+                              linking.
+                            </div>
+                          )}
+                        </AlertDescription>
+                      </Alert>
+                    </div>
+                  ) : (
+                    <p className="text-sm text-gray-500">
+                      Select destination class to analyze tests
+                    </p>
+                  )}
+                </div>
+              )}
+
+              <Button
+                type="submit"
+                className="w-full"
+                disabled={
+                  isTransferring ||
+                  !transferTargetClass ||
+                  ((transferringStudent.standard === "11" ||
+                    transferringStudent.standard === "12") &&
+                    !transferTargetSubClass)
+                }
+              >
+                {isTransferring ? (
+                  <>
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Transferring...
+                  </>
+                ) : (
+                  "Confirm Transfer"
+                )}
+              </Button>
+            </form>
+          ) : (
+            <div className="py-4 text-sm text-muted-foreground">
+              No student selected for transfer.
+            </div>
+          )}
+        </DialogContent>
+      </Dialog>
 
       <Tabs value={activeTab} onValueChange={setActiveTab} className="w-full">
         <div className="space-y-2">
@@ -926,6 +1324,23 @@ export default function EnhancedAdminPanel() {
                                     <TableCell>{student.name}</TableCell>
                                     <TableCell>
                                       <div className="flex gap-2">
+                                        <Button
+                                          variant="secondary"
+                                          size="sm"
+                                          onClick={() =>
+                                            openTransferDialog(
+                                              student,
+                                              standard,
+                                              className
+                                            )
+                                          }
+                                          disabled={
+                                            (standards[standard]?.classes
+                                              ?.length || 0) <= 1
+                                          }
+                                        >
+                                          Transfer
+                                        </Button>
                                         <Dialog>
                                           <DialogTrigger asChild>
                                             <Button
