@@ -639,7 +639,7 @@ export default function EnhancedAdminPanel() {
       XLSX.writeFile(wb, "student_template.xlsx");
     } catch (error) {
       console.error("Error creating template:", error);
-      // Fallback to CSV if XLSX fails
+     
       const csvContent =
         "Roll No,Name,Class,SubClass\n1,Student Name 1,A,Maths\n2,Student Name 2,A,Biology\n3,Student Name 3,B,Maths\n4,Student Name 4,B,Biology\n5,Student Name 5,C,Maths\n";
       const blob = new Blob([csvContent], { type: "text/csv" });
